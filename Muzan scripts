@@ -1,0 +1,136 @@
+-- MuzanHub.lua
+local ESPModule = require(script.ESPModule)
+local AimbotModule = require(script.AimbotModule)
+
+local MuzanHub = {}
+
+-- Variáveis para controle
+local espAtivo = false
+local aimbotAtivo = false
+
+function MuzanHub:ToggleESP()
+    espAtivo = not espAtivo
+    if espAtivo then
+        ESPModule:Enable()
+    else
+        ESPModule:Disable()
+    end
+end
+
+function MuzanHub:ToggleAimbot()
+    aimbotAtivo = not aimbotAtivo
+    if aimbotAtivo then
+        AimbotModule:Enable()
+    else
+        AimbotModule:Disable()
+    end
+end
+
+-- Exemplo de ativação (pode ser substituído por GUI ou comandos)
+print("Muzan Scripts iniciado")
+print("Ativando ESP")
+MuzanHub:ToggleESP()
+
+print("Ativando Aimbot")
+MuzanHub:ToggleAimbot()
+
+return MuzanHub
+
+-- ESPModule.lua
+local ESPModule = {}
+
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local espBoxes = {}
+
+function ESPModule:Enable()
+    self.connection = RunService.RenderStepped:Connect(function()
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= Players.LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                if not espBoxes[player.Name] then
+                    local box = Drawing.new("Square")
+                    box.Color = Color3.new(1, 0, 0)
+                    box.Thickness = 2
+                    box.Transparency = 1
+                    espBoxes[player.Name] = box
+                end
+                local camera = workspace.CurrentCamera
+                local pos, onScreen = camera:WorldToViewportPoint(player.Character.HumanoidRootPart.Position)
+                local box = espBoxes[player.Name]
+                if onScreen then
+                    box.Visible = true
+                    box.Position = Vector2.new(pos.X - 20, pos.Y - 20)
+                    box.Size = Vector2.new(40, 40)
+                else
+                    box.Visible = false
+                end
+            end
+        end
+    end)
+end
+
+function ESPModule:Disable()
+    if self.connection then
+        self.connection:Disconnect()
+        self.connection = nil
+    end
+    for _, box in pairs(espBoxes) do
+        box:Remove()
+    end
+    espBoxes = {}
+end
+
+return ESPModule
+
+-- AimbotModule.lua
+local AimbotModule = {}
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+local aimbotEnabled = false
+
+function AimbotModule:GetClosestTarget()
+    local closestPlayer = nil
+    local shortestDistance = math.huge
+
+    local mousePos = game.Players.LocalPlayer:GetMouse().Hit.p
+
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local targetPos = player.Character.HumanoidRootPart.Position
+            local distance = (targetPos - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
+            if distance < shortestDistance then
+                shortestDistance = distance
+                closestPlayer = player
+            end
+        end
+    end
+    return closestPlayer
+end
+
+function AimbotModule:Enable()
+    if self.connection then return end
+    self.connection = RunService.RenderStepped:Connect(function()
+        if not aimbotEnabled then return end
+        local target = self:GetClosestTarget()
+        if target and target.Character and target.Character:FindFirstChild("Head") then
+            local mouse = LocalPlayer:GetMouse()
+            local targetPos = target.Character.Head.Position
+            mousemoverel(targetPos.X - mouse.X, targetPos.Y - mouse.Y)  -- OBS: mousemoverel funciona só em alguns contextos
+        end
+    end)
+    aimbotEnabled = true
+end
+
+function AimbotModule:Disable()
+    aimbotEnabled = false
+    if self.connection then
+        self.connection:Disconnect()
+        self.connection = nil
+    end
+end
+
+return AimbotModule
